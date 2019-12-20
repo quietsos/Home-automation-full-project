@@ -1,0 +1,84 @@
+//Module 3
+// Home safety
+//Gas Sensor 
+//Flame Sensor
+//Temparature and Humidity sensor
+
+#define gasSensor A0
+#define flameSensor D0
+#define DHTPIN D3 
+
+
+#define CAYENNE_PRINT Serial
+#include <CayenneMQTTESP8266.h>
+char ssid[] = "ICE_Innovation_Lab";
+char wifiPassword[] = "bolajabena15";
+char username[] = "6d9b9800-c3c4-11e8-9747-bb363659b178";
+char password[] = "860d76e70b2b9f9502cb41568129a1ff99416a2e";
+char clientID[] = "8693ab30-9ce1-11e9-9636-f9904f7b864b";
+int gasSensorValue, flameSensorValue;
+
+
+#include <DHT.h>
+#define DHTTYPE DHT11 
+DHT dht(DHTPIN, DHTTYPE);
+
+int localHum = 0;
+int localTemp = 0;
+
+
+void setup() 
+{
+  Serial.begin(9600);
+  Cayenne.begin(username, password, clientID, ssid, wifiPassword);
+  pinMode(flameSensor, INPUT);
+  pinMode(gasSensor, INPUT);
+  
+}
+
+void loop() {
+  Cayenne.loop();
+  getflameSensorValue();
+  getgasSensorValue();
+  getDHT();
+  delay(1000);
+}
+
+void getDHT()
+{
+  float tempIni = localTemp;
+  float humIni = localHum;
+  localTemp = dht.readTemperature();
+  localHum = dht.readHumidity();
+  if ((isnan(localHum) || isnan(localTemp))&&(localTemp<100&&localHum<100))   // Check if any reads failed and exit early (to try again).
+  {
+    Serial.println("Failed to read from DHT sensor!");
+    localTemp = tempIni;
+    localHum = humIni;
+    return;
+  }
+}
+void getflameSensorValue()
+{
+  int value=digitalRead(flameSensor);
+  Serial.print("Flame Sensor Value: ");
+  Serial.println(value);
+  flameSensorValue=1-value;
+}
+
+void getgasSensorValue()
+{
+  int value=analogRead(gasSensor);
+  Serial.print("Gas Sensor Value: ");
+  Serial.println(value);
+  gasSensorValue=1024-value;
+}
+
+
+CAYENNE_OUT_DEFAULT()
+{
+    Cayenne.virtualWrite(1, flameSensorValue);
+    Cayenne.virtualWrite(2, gasSensorValue);
+    Cayenne.virtualWrite(4,localTemp);
+    Cayenne.virtualWrite(5,localHum);
+}
