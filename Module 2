@@ -1,0 +1,93 @@
+//Home Automation Project
+//Module 2
+//garden, outdoor Temparature, Outdoor Humidity, pump automation
+
+#define waterpump D1
+#define soilmoisture A0
+#define raindrop D0
+#define DHTPIN D2  
+
+#define CAYENNE_PRINT Serial
+#include <CayenneMQTTESP8266.h>
+char ssid[] = "ICE_Innovation_Lab";
+char wifiPassword[] = "bolajabena15";
+char username[] = "6d9b9800-c3c4-11e8-9747-bb363659b178";
+char password[] = "860d76e70b2b9f9502cb41568129a1ff99416a2e";
+char clientID[] = "1f1ea120-9b2f-11e9-beb3-736c9e4bf7d0";
+int rainSensorValue, soilSensorValue;
+
+#include <DHT.h>
+#define DHTTYPE DHT11 
+DHT dht(DHTPIN, DHTTYPE);
+
+int localHum = 0;
+int localTemp = 0;
+
+void setup() {
+  Serial.begin(9600);
+  Cayenne.begin(username, password, clientID, ssid, wifiPassword);
+  pinMode(waterpump, OUTPUT);
+  pinMode(soilmoisture, INPUT);
+  pinMode(raindrop, INPUT);
+  
+}
+
+void loop() {
+  Cayenne.loop();
+  getRainSensorValue();
+  getSoilMoistureSensorValue();
+  getDHT();
+  delay(1000);
+}
+void getDHT()
+{
+  float tempIni = localTemp;
+  float humIni = localHum;
+  localTemp = dht.readTemperature();
+  localHum = dht.readHumidity();
+  if ((isnan(localHum) || isnan(localTemp))&&(localTemp<100&&localHum<100))   // Check if any reads failed and exit early (to try again).
+  {
+    Serial.println("Failed to read from DHT sensor!");
+    localTemp = tempIni;
+    localHum = humIni;
+    return;
+  }
+}
+
+
+void getRainSensorValue()
+{
+  int value=digitalRead(raindrop);
+  Serial.print("Rain Value: ");
+  Serial.println(value);
+  rainSensorValue=1-value;
+}
+
+void getSoilMoistureSensorValue()
+{
+  int value=analogRead(soilmoisture);
+  Serial.print("Soil Moisture: ");
+  Serial.println(value);
+  soilSensorValue=1024-value;
+}
+
+CAYENNE_OUT_DEFAULT()
+{
+    Cayenne.virtualWrite(1, rainSensorValue);
+    Cayenne.virtualWrite(2, soilSensorValue);
+    Cayenne.virtualWrite(4,localTemp);
+    Cayenne.virtualWrite(5,localHum);
+}
+
+CAYENNE_IN(3)
+{
+   int currentValue=getValue.asInt();
+   if(currentValue==1)
+   {
+     digitalWrite(waterpump,HIGH);
+   }
+   else
+   {
+     digitalWrite(waterpump,LOW); 
+   }
+}
